@@ -157,33 +157,37 @@ def main():
     garmin = Garmin()
     garmin.login(str(token_dir))
 
-    target_date = (date.today() - timedelta(days=1)).isoformat()
+    target_dates = [
+        date.today().isoformat(),
+        (date.today() - timedelta(days=1)).isoformat(),
+    ]
 
-    stats = garmin.get_stats(target_date)
-    hrv_data = garmin.get_hrv_data(target_date)
-    sleep_data = garmin.get_sleep_data(target_date)
+    for target_date in target_dates:
+        stats = garmin.get_stats(target_date)
+        hrv_data = garmin.get_hrv_data(target_date)
+        sleep_data = garmin.get_sleep_data(target_date)
 
-    rhr = stats.get("restingHeartRate")
+        rhr = stats.get("restingHeartRate")
 
-    hrv = None
-    if hrv_data:
-        hrv_summary = hrv_data.get("hrvSummary") or {}
-        hrv = hrv_summary.get("lastNightAvg")
+        hrv = None
+        if hrv_data:
+            hrv_summary = hrv_data.get("hrvSummary") or {}
+            hrv = hrv_summary.get("lastNightAvg")
 
-    sleep_h = None
-    if sleep_data:
-        daily_sleep = sleep_data.get("dailySleepDTO") or {}
-        sleep_seconds = daily_sleep.get("sleepTimeSeconds")
+        sleep_h = None
+        if sleep_data:
+            daily_sleep = sleep_data.get("dailySleepDTO") or {}
+            sleep_seconds = daily_sleep.get("sleepTimeSeconds")
 
-        if sleep_seconds is not None:
-            sleep_h = round(sleep_seconds / 3600, 2)
+            if sleep_seconds is not None:
+                sleep_h = round(sleep_seconds / 3600, 4)
 
-    print(f"Date: {target_date}")
-    print(f"RHR: {rhr}")
-    print(f"HRV: {hrv}")
-    print(f"Sleep: {sleep_h} h")
+        print(f"Date: {target_date}")
+        print(f"RHR: {rhr}")
+        print(f"HRV: {hrv}")
+        print(f"Sleep: {sleep_h} h")
 
-    write_airtable(target_date, rhr, hrv, sleep_h)
+        write_airtable(target_date, rhr, hrv, sleep_h)
 
     persist_token_store(
         token_path,
