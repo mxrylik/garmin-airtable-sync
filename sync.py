@@ -29,6 +29,7 @@ AIRTABLE_URL = f"https://api.airtable.com/v0/{BASE_ID}/{TABLE_ID}"
 
 def decrypt_token_store():
     key = os.environ["GARMIN_TOKEN_KEY"].encode()
+    fernet = Fernet(key)
 
     encrypted_path = Path("garmin_tokens.enc")
     token_dir = Path.home() / ".garminconnect"
@@ -37,17 +38,31 @@ def decrypt_token_store():
     token_path = token_dir / "garmin_tokens.json"
 
     encrypted = encrypted_path.read_bytes()
-    decrypted = Fernet(key).decrypt(encrypted)
-    token_path.write_bytes(decrypted)
+    original_plaintext = fernet.decrypt(encrypted)
+
+    token_path.write_bytes(original_plaintext)
 
     os.chmod(token_dir, 0o700)
     os.chmod(token_path, 0o600)
 
-    return token_dir
+    return token_dir, token_path, original_plaintext, fernet
+
+
+def persist_token_store(token_path, original_plaintext, fernet):
+    current_plaintext = token_path.read_bytes()
+
+    if current_plaintext == original_plaintext:
+        print("Garmin token: unchanged")
+        return
+
+    encrypted = fernet.encrypt(current_plaintext)
+    Path("garmin_tokens.enc").write_bytes(encrypted)
+
+    print("Garmin token: updated and re-encrypted")
 
 
 # -----------------------------
-# Airtable helpers
+# Airtable
 # -----------------------------
 
 def airtable_headers():
@@ -125,7 +140,7 @@ def write_airtable(target_date, rhr, hrv, sleep_h):
 # -----------------------------
 
 def main():
-    token_dir = decrypt_token_store()
+    token_dir, token_path, original_plaintext, fernet = decrypt_token_store()
 
     garmin = Garmin()
     garmin.login(str(token_dir))
@@ -160,6 +175,13 @@ def main():
     print(f"Sleep: {sleep_h} h")
 
     write_airtable(target_date, rhr, hrv, sleep_h)
+
+    # Save refreshed Garmin tokens if Garmin changed them
+    persist_token_store(
+        token_path,
+        original_plaintext,
+        fernet,
+    )
 
     print("SYNC OK")
 
