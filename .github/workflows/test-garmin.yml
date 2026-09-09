@@ -1,0 +1,25 @@
+name: Test Garmin Sync
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-garmin:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Test Garmin connection
+        env:
+          GARMIN_TOKEN_KEY: ${{ secrets.GARMIN_TOKEN_KEY }}
+        run: python sync.py
