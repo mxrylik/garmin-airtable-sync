@@ -3,6 +3,9 @@ name: Test Garmin Sync
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   test-garmin:
     runs-on: ubuntu-latest
@@ -19,8 +22,20 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Test Garmin to Airtable sync
+      - name: Garmin to Airtable sync
         env:
           GARMIN_TOKEN_KEY: ${{ secrets.GARMIN_TOKEN_KEY }}
           AIRTABLE_TOKEN: ${{ secrets.AIRTABLE_TOKEN }}
         run: python sync.py
+
+      - name: Save refreshed Garmin token
+        run: |
+          if git diff --quiet -- garmin_tokens.enc; then
+            echo "Garmin token did not change"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add garmin_tokens.enc
+            git commit -m "Update Garmin token"
+            git push
+          fi
