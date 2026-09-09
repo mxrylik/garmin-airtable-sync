@@ -1,2 +1,3 @@
-garminconnect
+garminconnect==0.3.13
+cryptography
 requests
