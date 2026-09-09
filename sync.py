@@ -72,67 +72,79 @@ def airtable_headers():
     }
 
 
-def find_airtable_record(target_date):
-    formula = f"{{Date}}='{target_date}'"
+def find_airtable_records(target_date):
+    formula = f"IS_SAME({{Date}}, '{target_date}', 'day')"
 
     response = requests.get(
         AIRTABLE_URL,
         headers=airtable_headers(),
         params={
             "filterByFormula": formula,
-            "maxRecords": 1,
         },
         timeout=30,
     )
 
     response.raise_for_status()
-
-    records = response.json().get("records", [])
-
-    if records:
-        return records[0]["id"]
-
-    return None
+    return response.json().get("records", [])
 
 
 def write_airtable(target_date, rhr, hrv, sleep_h):
-    fields = {
+    desired_fields = {
         FIELD_DATE: target_date,
         FIELD_SYNC_STATUS: "ok",
     }
 
     if rhr is not None:
-        fields[FIELD_RHR] = rhr
+        desired_fields[FIELD_RHR] = rhr
 
     if hrv is not None:
-        fields[FIELD_HRV] = hrv
+        desired_fields[FIELD_HRV] = hrv
 
     if sleep_h is not None:
-        fields[FIELD_SLEEP] = sleep_h
+        desired_fields[FIELD_SLEEP] = sleep_h
 
-    record_id = find_airtable_record(target_date)
+    records = find_airtable_records(target_date)
 
-    if record_id:
-        response = requests.patch(
-            f"{AIRTABLE_URL}/{record_id}",
-            headers=airtable_headers(),
-            json={"fields": fields},
-            timeout=30,
-        )
-        action = "UPDATED"
-
-    else:
+    if not records:
         response = requests.post(
             AIRTABLE_URL,
             headers=airtable_headers(),
-            json={"fields": fields},
+            json={"fields": desired_fields},
             timeout=30,
         )
-        action = "CREATED"
+        response.raise_for_status()
 
-    response.raise_for_status()
+        print("Airtable: CREATED")
+        return
 
-    print(f"Airtable: {action}")
+    record = records[0]
+    record_id = record["id"]
+    current_fields = record.get("fields", {})
+
+    needs_update = False
+
+    for field_id, desired_value in desired_fields.items():
+        current_value = current_fields.get(field_id)
+
+        if current_value != desired_value:
+            needs_update = True
+            break
+
+    if needs_update:
+        response = requests.patch(
+            f"{AIRTABLE_URL}/{record_id}",
+            headers=airtable_headers(),
+            json={"fields": desired_fields},
+            timeout=30,
+        )
+        response.raise_for_status()
+
+        print("Airtable: UPDATED")
+    else:
+        print("Airtable: ALREADY CORRECT")
+
+    if len(records) > 1:
+        print(f"WARNING: {len(records)} Airtable records found for {target_date}")
 
 
 # -----------------------------
@@ -151,16 +163,13 @@ def main():
     hrv_data = garmin.get_hrv_data(target_date)
     sleep_data = garmin.get_sleep_data(target_date)
 
-    # Resting heart rate
     rhr = stats.get("restingHeartRate")
 
-    # Nightly HRV
     hrv = None
     if hrv_data:
         hrv_summary = hrv_data.get("hrvSummary") or {}
         hrv = hrv_summary.get("lastNightAvg")
 
-    # Sleep duration
     sleep_h = None
     if sleep_data:
         daily_sleep = sleep_data.get("dailySleepDTO") or {}
@@ -176,7 +185,6 @@ def main():
 
     write_airtable(target_date, rhr, hrv, sleep_h)
 
-    # Save refreshed Garmin tokens if Garmin changed them
     persist_token_store(
         token_path,
         original_plaintext,
