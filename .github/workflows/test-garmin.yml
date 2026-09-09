@@ -19,7 +19,7 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-           - name: Test Garmin to Airtable sync
+      - name: Test Garmin to Airtable sync
         env:
           GARMIN_TOKEN_KEY: ${{ secrets.GARMIN_TOKEN_KEY }}
           AIRTABLE_TOKEN: ${{ secrets.AIRTABLE_TOKEN }}
