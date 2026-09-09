@@ -3,6 +3,10 @@ name: Test Garmin Sync
 on:
   workflow_dispatch:
 
+  schedule:
+    - cron: "0 10 * * *"
+      timezone: "Europe/Brussels"
+
 permissions:
   contents: write
 
