@@ -1,4 +1,4 @@
-name: Test Garmin Sync
+name: Garmin Airtable Sync
 
 on:
   workflow_dispatch:
